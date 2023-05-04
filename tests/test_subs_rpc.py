@@ -161,3 +161,29 @@ class RpcSubscriptionTest(unittest.TestCase):
                 output = rpc_sess.rpc_send(rpc_xpath, {"behaviour": "success"})
                 self.assertEqual(len(calls), 1)
                 self.assertEqual(output, {"message": "bye bye"})
+
+    def test_rpc_sub_with_subtree(self):
+        priv = object()
+        calls = []
+        rpc_xpath = "/sysrepo-example:poweroff"
+
+        def rpc_cb(xpath, input_params, event, private_data, **kwargs):
+            self.assertEqual(rpc_xpath, xpath)
+            self.assertEqual(input_params, {"behaviour": "success"})
+            self.assertEqual(event, "rpc")
+            self.assertIs(private_data, priv)
+            self.assertIn("subtree", kwargs)
+            module=(kwargs["subtree"]["sysrepo-state"]["module"])
+            self.assertEqual(module.__getitem__("yang")["name"],"yang")
+            calls.append((xpath, input_params, event, private_data))
+            return {"message": "bye bye"}
+
+        with self.conn.start_session() as sess:
+            sess.subscribe_rpc_call(
+                rpc_xpath, rpc_cb, private_data=priv, strict=True, subtree=True,
+            )
+
+            with self.conn.start_session() as rpc_sess:
+                output = rpc_sess.rpc_send(rpc_xpath, {"behaviour": "success"})
+                self.assertEqual(len(calls), 1)
+                self.assertEqual(output, {"message": "bye bye"})

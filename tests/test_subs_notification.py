@@ -36,6 +36,7 @@ class NotificationSubscriptionTest(unittest.TestCase):
         notif_xpath: str,
         notif_dict: typing.Dict,
         request_extra_info: bool = False,
+        request_subtree: bool = False,
     ):
         priv = object()
         callback_called = threading.Event()
@@ -54,6 +55,10 @@ class NotificationSubscriptionTest(unittest.TestCase):
                 self.assertEqual(getpass.getuser(), kwargs["user"])
                 self.assertIn("netconf_id", kwargs)
                 self.assertEqual(kwargs["netconf_id"], 12)
+            elif request_subtree:
+                self.assertIn("subtree",kwargs)
+                module=(kwargs["subtree"]["sysrepo-state"]["module"])
+                self.assertEqual(module.__getitem__("yang")["name"],"yang")
             else:
                 self.assertEqual(0, len(kwargs))
 
@@ -62,6 +67,8 @@ class NotificationSubscriptionTest(unittest.TestCase):
         with self.conn.start_session() as listening_session:
             if request_extra_info:
                 kwargs = {"extra_info": True}
+            elif request_subtree:
+                kwargs = {"subtree": True}
             else:
                 kwargs = {}
             listening_session.subscribe_notification(
@@ -95,4 +102,12 @@ class NotificationSubscriptionTest(unittest.TestCase):
             notif_xpath="/sysrepo-example:state/state-changed",
             notif_dict={"message": "Some state changed"},
             request_extra_info=True,
+        )
+
+    
+    def test_notification_sub_with_subtree(self):
+        self._test_notification_sub(
+            notif_xpath="/sysrepo-example:state/state-changed",
+            notif_dict={"message": "Some state changed"},
+            request_subtree=True,
         )

@@ -307,3 +307,36 @@ class ModuleChangeSubscriptionTest(unittest.TestCase):
             #   * once with event "change"
             #   * once with event "done"
             self.assertEqual(2, len(calls))
+
+    def test_module_change_sub_with_subtree(self):
+        priv = object()
+        calls = []
+
+        def module_change_cb(event, req_id, changes, private_data, **kwargs):
+            self.assertIn(event, ("change", "done", "abort"))
+            self.assertIsInstance(req_id, int)
+            self.assertIsInstance(changes, list)
+            self.assertIs(private_data, priv)
+            self.assertIn("subtree", kwargs)
+            self.assertEqual(kwargs["subtree"]["conf"]["system"]["hostname"],"fooboobar")
+            endpoint=kwargs["subtree"]["netconf-server"]["listen"]["endpoint"]
+            self.assertEqual(endpoint.__getitem__("default-ssh")["ssh"]["tcp-server-parameters"]["keepalives"]["max-probes"],10)
+            calls.append((event, req_id, changes, private_data, kwargs))
+
+        self.sess.subscribe_module_change(
+            "sysrepo-example",
+            "/sysrepo-example:conf",
+            module_change_cb,
+            private_data=priv,
+            extra_info=True,
+            subtree=True,
+        )
+
+        with self.conn.start_session("running") as ch_sess:
+
+            sent_config = {"conf": {"system": {"hostname": "fooboobar"}}}
+            ch_sess.replace_config(sent_config, "sysrepo-example", strict=True)
+            # Successful change callbacks are called twice:
+            #   * once with event "change"
+            #   * once with event "done"
+            self.assertEqual(2, len(calls))
