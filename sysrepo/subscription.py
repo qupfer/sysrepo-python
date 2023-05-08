@@ -35,6 +35,7 @@ class Subscription:
         include_implicit_defaults: bool = True,
         include_deleted_values: bool = False,
         extra_info: bool = False,
+        subtree: bool = False,
     ):
         """
         :arg callback:
@@ -58,6 +59,9 @@ class Subscription:
             When True, the given callback is called with extra keyword arguments
             containing extra information of the sysrepo session that gave origin to the
             event
+        :arg subtree:
+            When True, the given callback is called with a extra keyword argument
+            containing the full subtree of the subscription.
         """
         if is_async_func(callback) and not asyncio_register:
             raise ValueError(
@@ -70,6 +74,7 @@ class Subscription:
         self.include_implicit_defaults = include_implicit_defaults
         self.include_deleted_values = include_deleted_values
         self.extra_info = extra_info
+        self.subtree=subtree
         if asyncio_register:
             self.loop = asyncio.get_event_loop()
         else:
@@ -242,6 +247,11 @@ def module_change_callback(session, sub_id, module, xpath, event, req_id, priv):
         else:
             extra_info = {}
 
+        if subscription.subtree:
+            subtree={"subtree":session.get_data("//.",strip_prefixes=True)}
+        else:
+            subtree = {}
+
         if is_async_func(callback):
             task_id = (event, req_id)
 
@@ -258,7 +268,7 @@ def module_change_callback(session, sub_id, module, xpath, event, req_id, priv):
                     )
                 )
                 task = subscription.loop.create_task(
-                    callback(event_name, req_id, changes, private_data, **extra_info)
+                    callback(event_name, req_id, changes, private_data, **extra_info, **subtree)
                 )
                 task.add_done_callback(
                     functools.partial(subscription.task_done, task_id, event_name)
@@ -286,7 +296,7 @@ def module_change_callback(session, sub_id, module, xpath, event, req_id, priv):
                     include_deleted_values=subscription.include_deleted_values,
                 )
             )
-            callback(event_name, req_id, changes, private_data, **extra_info)
+            callback(event_name, req_id, changes, private_data, **extra_info, **subtree)
 
         return lib.SR_ERR_OK
 
@@ -367,12 +377,17 @@ def oper_data_callback(session, sub_id, module, xpath, req_xpath, req_id, parent
         else:
             extra_info = {}
 
+        if subscription.subtree:
+            subtree={"subtree":session.get_data("//.",strip_prefixes=True)}
+        else:
+            subtree = {}
+
         if is_async_func(callback):
             task_id = req_id
 
             if task_id not in subscription.tasks:
                 task = subscription.loop.create_task(
-                    callback(req_xpath, private_data, **extra_info)
+                    callback(req_xpath, private_data, **extra_info, **subtree)
                 )
                 task.add_done_callback(
                     functools.partial(subscription.task_done, task_id, "oper")
@@ -389,7 +404,7 @@ def oper_data_callback(session, sub_id, module, xpath, req_xpath, req_id, parent
             oper_data = task.result()
 
         else:
-            oper_data = callback(req_xpath, private_data, **extra_info)
+            oper_data = callback(req_xpath, private_data, **extra_info, **subtree)
 
         if isinstance(oper_data, dict):
             # convert oper_data to a libyang.DNode object
@@ -489,13 +504,18 @@ def rpc_callback(session, sub_id, xpath, input_node, event, req_id, output_node,
             }
         else:
             extra_info = {}
+        
+        if subscription.subtree:
+            subtree={"subtree":session.get_data("//.",strip_prefixes=True)}
+        else:
+            subtree = {}
 
         if is_async_func(callback):
             task_id = (event, req_id)
 
             if task_id not in subscription.tasks:
                 task = subscription.loop.create_task(
-                    callback(xpath, input_dict, event_name, private_data, **extra_info)
+                    callback(xpath, input_dict, event_name, private_data, **extra_info, **subtree)
                 )
                 task.add_done_callback(
                     functools.partial(subscription.task_done, task_id, event_name)
@@ -513,7 +533,7 @@ def rpc_callback(session, sub_id, xpath, input_node, event, req_id, output_node,
 
         else:
             output_dict = callback(
-                xpath, input_dict, event_name, private_data, **extra_info
+                xpath, input_dict, event_name, private_data, **extra_info, **subtree
             )
 
         if event != lib.SR_EV_RPC:
@@ -613,11 +633,16 @@ def event_notif_tree_callback(session, sub_id, notif_type, notif, timestamp, pri
             }
         else:
             extra_info = {}
+        
+        if subscription.subtree:
+            subtree={"subtree":session.get_data("//.",strip_prefixes=True)}
+        else:
+            subtree = {}
 
         if is_async_func(callback):
             task = subscription.loop.create_task(
                 callback(
-                    xpath, notif_type, notif_dict, timestamp, private_data, **extra_info
+                    xpath, notif_type, notif_dict, timestamp, private_data, **extra_info, **subtree
                 )
             )
             task.add_done_callback(
@@ -625,7 +650,7 @@ def event_notif_tree_callback(session, sub_id, notif_type, notif, timestamp, pri
             )
         else:
             callback(
-                xpath, notif_type, notif_dict, timestamp, private_data, **extra_info
+                xpath, notif_type, notif_dict, timestamp, private_data, **extra_info, **subtree
             )
 
     except BaseException:

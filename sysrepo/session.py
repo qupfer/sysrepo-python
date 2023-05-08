@@ -270,6 +270,10 @@ class SysrepoSession:
             * netconf_id: the NETCONF session ID set for the event originator
                 sysrepo session
             * user: the effective username of the event originator sysrepo session
+        If the callback was registered with the argument subtree=True (see
+        Session.subscribe_module_change), then a extra keyword argument is passed when
+        calling the callback:
+            * subtree: the subtree of the changed module
 
     When event is one of ("update", "change"), if the callback raises an exception, the
     changes will be rejected and the error will be forwarded to the client that made the
@@ -295,6 +299,7 @@ class SysrepoSession:
         include_implicit_defaults: bool = True,
         include_deleted_values: bool = False,
         extra_info: bool = False,
+        subtree: bool = False,
     ) -> None:
         """
         Subscribe for changes made in the specified module.
@@ -336,6 +341,9 @@ class SysrepoSession:
             When True, the given callback is called with extra keyword arguments
             containing extra information of the sysrepo session that gave origin to the
             event (see ModuleChangeCallbackType for more details)
+        :arg subtree:
+            When True, the given callback is called with a extra keyword argument
+            containing the full subtree of the subscription.
         """
         if self.is_implicit:
             raise SysrepoUnsupportedError("cannot subscribe with implicit sessions")
@@ -348,6 +356,7 @@ class SysrepoSession:
             include_implicit_defaults=include_implicit_defaults,
             include_deleted_values=include_deleted_values,
             extra_info=extra_info,
+            subtree=subtree,
         )
         sub_p = ffi.new("sr_subscription_ctx_t **")
 
@@ -410,6 +419,7 @@ class SysrepoSession:
         asyncio_register: bool = False,
         strict: bool = False,
         extra_info: bool = False,
+        subtree: bool = False,
     ) -> None:
         """
         Register for providing operational data at the given xpath.
@@ -442,6 +452,9 @@ class SysrepoSession:
             When True, the given callback is called with extra keyword arguments
             containing extra information of the sysrepo session that gave origin to the
             event (see OperDataCallbackType for more details)
+        :arg subtree:
+            When True, the given callback is called with a extra keyword argument
+            containing the full subtree of the subscription.
         """
         if self.is_implicit:
             raise SysrepoUnsupportedError("cannot subscribe with implicit sessions")
@@ -552,6 +565,7 @@ class SysrepoSession:
         strict: bool = False,
         include_implicit_defaults: bool = True,
         extra_info: bool = False,
+        subtree: bool = False,
     ) -> None:
         """
         Subscribe for the delivery of an RPC/action.
@@ -580,6 +594,9 @@ class SysrepoSession:
             When True, the given callback is called with extra keyword arguments
             containing extra information of the sysrepo session that gave origin to the
             event (see RpcCallbackType for more details)
+        :arg subtree:
+            When True, the given callback is called with a extra keyword argument
+            containing the full subtree of the subscription.
         """
         if self.is_implicit:
             raise SysrepoUnsupportedError("cannot subscribe with implicit sessions")
@@ -664,6 +681,7 @@ class SysrepoSession:
         asyncio_register: bool = False,
         private_data: Any = None,
         extra_info: bool = False,
+        subtree: bool = False,
     ) -> None:
         """
         Subscribe for the delivery of a notification.
@@ -691,6 +709,9 @@ class SysrepoSession:
             When True, the given callback is called with extra keyword arguments
             containing extra information of the sysrepo session that gave origin to the
             event (see RpcCallbackType for more details)
+        :arg subtree:
+            When True, the given callback is called with a extra keyword argument
+            containing the full subtree of the subscription.
         """
 
         if self.is_implicit:
